@@ -1,67 +1,34 @@
-name: Import Cydia Repos
+name: Import Packix Repo
 
 on:
   workflow_dispatch:
 
 jobs:
-  import-debs:
-    strategy:
-      matrix:
-        archive:
-          - apt.thebigboss.org_repofiles_cydia.7z
-          - repo.dynastic.co.7z
-          - havoc.app.7z
-          - repo.packix.com.7z
-          - chariz.com.7z
-          - twickd.com.7z
-          - c1d3r.com.7z
-          - ios.jjolano.me.7z
-          - repo.pixelomer.com.7z
-          - repo.co.kr.7z
-          - repo.nepeta.me.7z
-          - repo.rpgfarm.com.7z
-          - repo.xsf1.re.7z
-          - repo.zebra.sh.7z
-
+  import:
     runs-on: ubuntu-latest
-
     steps:
-      - name: ⏳ Start processing ${{ matrix.archive }}
-        run: echo "🔄 Начинаю обработку архива ${{ matrix.archive }}"
+      - name: ⏳ Start
+        run: echo "🔄 Обработка repo.packix.com.7z"
 
-      - name: 📥 Download archive
-        run: |
-          echo "📦 Загружаю ${{ matrix.archive }}..."
-          curl -L "https://archive.org/download/cydia_repository_archive/${{ matrix.archive }}" -o "${{ matrix.archive }}"
+      - name: 📥 Download
+        run: curl -L "https://archive.org/download/cydia_repository_archive/repo.packix.com.7z" -o "packix.7z"
 
-      - name: 📂 Extract archive
+      - name: 📂 Extract
         run: |
-          echo "📤 Распаковываю ${{ matrix.archive }}..."
           sudo apt-get update
           sudo apt-get install -y p7zip-full
           mkdir -p repo/debs
-          7z x "${{ matrix.archive }}" -orepo/debs
-          echo "🧹 Удаляю исходный архив..."
-          rm "${{ matrix.archive }}"
+          7z x "packix.7z" -orepo/debs
+          rm "packix.7z"
 
-      - name: 📊 Show disk usage
-        run: |
-          echo "📈 Проверка свободного места на диске:"
-          df -h
+      - name: 📊 Disk usage
+        run: df -h
 
-      - name: 📦 Upload extracted debs
+      - name: 📦 Upload
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.archive }}-debs
+          name: packix-debs
           path: repo/debs
 
-      - name: ✅ Done with ${{ matrix.archive }}
-        run: echo "✅ Обработка завершена ${{ matrix.archive }}"
-
-  finalize:
-    needs: import-debs
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🧩 Final step
-        run: echo "🎉 Все архивы обработаны. Артефакты сохранены."
-
+      - name: ✅ Done
+        run: echo "✅ Packix архив обработан"
