@@ -13,17 +13,13 @@ jobs:
       - name: 📂 Extract archive
         run: |
           sudo apt-get update
-          sudo apt-get install -y p7zip-full binutils
+          sudo apt-get install -y p7zip-full
           7z x apt.saurik.com.7z -oextracted
 
-      - name: 🔍 List .deb files
+      - name: 📦 Copy .deb files to /repo/debs
         run: |
-          find extracted -type f -name "*.deb" > deb_list.txt
-          echo "Found $(wc -l < deb_list.txt) .deb files"
+          mkdir -p repo/debs
+          find extracted -type f -name "*.deb" -exec cp {} repo/debs/ \;
 
-      - name: ✅ Basic .deb check
-        run: |
-          while read -r deb; do
-            echo "Checking $deb"
-            ar t "$deb" || echo "⚠️ $deb is unreadable"
-          done < deb_list.txt
+      - name: 📄 List copied files
+        run: ls -lh repo/debs
