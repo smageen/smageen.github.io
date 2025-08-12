@@ -56,7 +56,7 @@ jobs:
           path: repo/debs
 
       - name: ✅ Done with ${{ matrix.archive }}
-        run: echo "✅ Обработка завершена: ${{ matrix.archive }}"
+        run: echo "✅ Обработка завершена ${{ matrix.archive }}"
 
   finalize:
     needs: import-debs
