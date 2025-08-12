@@ -2,60 +2,42 @@ name: Import All Cydia .7z Repos
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0' # еженедельно
 
 jobs:
   import-debs:
     runs-on: ubuntu-latest
-    timeout-minutes: 60  # ⏱️ защита от таймаута
-
     steps:
+
     - name: 📦 Установка инструментов
       run: |
         sudo apt-get update
-        sudo apt-get install -y dpkg-dev p7zip-full wget
+        sudo apt-get install -y p7zip-full dpkg-dev
 
     - name: 📁 Создание папки
       run: mkdir -p repo/debs
 
     - name: 📥 Скачивание всех .7z из Internet Archive
       run: |
-        echo "📥 Скачивание .7z-архивов..."
-        urls=(
-          "https://archive.org/download/cydia_repository_archive/apptapp.saurik.com.7z"
-          "https://archive.org/download/cydia_repository_archive/apt.saurik.com-(ios_main_).7z"
-          "https://archive.org/download/cydia_repository_archive/apt.thebigboss.org_repofiles_cydia-(_stable_main_).7z"
-          "https://archive.org/download/cydia_repository_archive/artillect.github.io_repo.7z"
-          "https://archive.org/download/cydia_repository_archive/cydia.bag-xml.com.7z"
-          "https://archive.org/download/cydia_repository_archive/cydia.invoxiplaygames.uk.7z"
-          "https://archive.org/download/cydia_repository_archive/cydia.invoxiplaygames.uk_beta.7z"
-          "https://archive.org/download/cydia_repository_archive/evynw.github.io.7z"
-          "https://archive.org/download/cydia_repository_archive/havoc.app.7z"
-          "https://archive.org/download/cydia_repository_archive/ios3.party.7z"
-          "https://archive.org/download/cydia_repository_archive/pwnage.dev.7z"
-          "https://archive.org/download/cydia_repository_archive/repo.dynastic.co.7z"
-          "https://archive.org/download/cydia_repository_archive/repo.mtmdev.org.7z"
-        )
-
-        for url in "${urls[@]}"; do
-          filename=$(basename "$url")
-          echo "⬇️ Скачивание $filename..."
-          wget --tries=5 --timeout=60 --progress=bar:force -O "repo/$filename" "$url"
-        done
+        wget -r -np -nd -A "*.7z" https://archive.org/download/cydia_repository_archive -P repo/archives
 
     - name: 📂 Распаковка архивов с логом
       run: |
-        echo "📂 Распаковка .7z..."
-        for file in repo/*.7z; do
-          echo "📂 Распаковка $(basename "$file")..."
-          7z x "$file" -orepo/debs | tee -a unpack.log
+        for file in repo/archives/*.7z; do
+          echo "📂 Распаковка: $file"
+          7z x "$file" -orepo/debs
         done
 
-    - name: 🧹 Очистка повреждённых .deb
+    - name: 🧹 Очистка повреждённых и некорректных .deb
       run: |
         echo "🧹 Проверка .deb-файлов..."
         find repo/debs -type f -name "*.deb" | while read file; do
           if ! dpkg-deb -I "$file" >/dev/null 2>&1; then
             echo "⚠️ Удалён повреждённый файл: $file"
+            rm "$file"
+          elif dpkg-deb -I "$file" | grep -E "^Installed-Size:.*$" | uniq -d | grep -q .; then
+            echo "⚠️ Удалён файл с дублирующим Installed-Size: $file"
             rm "$file"
           fi
         done
@@ -63,7 +45,10 @@ jobs:
     - name: 🧾 Генерация Packages
       run: |
         echo "🧾 Генерация Packages..."
-        cd repo
-        dpkg-scanpackages debs/ /dev/null > Packages
-        gzip -9 < Packages > Packages.gz
+        dpkg-scanpackages repo/debs /dev/null | gzip -9 > repo/Packages.gz
 
+    - name: 🚀 Публикация на GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: repo
