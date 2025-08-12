@@ -64,4 +64,3 @@ jobs:
     steps:
       - name: 🧩 Final step
         run: echo "🎉 Все архивы обработаны. Артефакты сохранены."
-
