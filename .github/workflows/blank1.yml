@@ -1,0 +1,37 @@
+name: Import apt.thebigboss.org Repo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧾 Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 📥 Download archive
+        run: curl -L "https://archive.org/download/cydia_repository_archive/apt.thebigboss.org_repofiles_cydia-(_stable_main_).7z" -o "apt.thebigboss.org.7z"
+
+      - name: 📂 Extract archive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          7z x apt.thebigboss.org.7z -oextracted
+
+      - name: 📦 Copy .deb files to /repo/debs
+        run: |
+          mkdir -p repo/debs
+          find extracted -type f -name "*.deb" -exec cp {} repo/debs/ \;
+
+      - name: ✅ Commit and push .deb files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add --force repo/debs/*.deb
+          git commit -m "Add .deb files from apt.thebigboss.org"
+          git push origin HEAD:main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
