@@ -7,6 +7,9 @@ jobs:
   import:
     runs-on: ubuntu-latest
     steps:
+      - name: 🧾 Checkout repo
+        uses: actions/checkout@v3
+
       - name: 📥 Download archive
         run: curl -L "https://archive.org/download/cydia_repository_archive/apt.saurik.com-(ios_main_).7z" -o "apt.saurik.com.7z"
 
@@ -21,10 +24,12 @@ jobs:
           mkdir -p repo/debs
           find extracted -type f -name "*.deb" -exec cp {} repo/debs/ \;
 
-      - name: ✅ Commit .deb files to repo
+      - name: ✅ Commit and push .deb files
         run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
           git add repo/debs/*.deb
           git commit -m "Add .deb files from apt.saurik.com"
           git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
