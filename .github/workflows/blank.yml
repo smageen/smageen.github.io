@@ -1,4 +1,4 @@
-name: Import Packix Repo
+name: Import apt.saurik.com Repo
 
 on:
   workflow_dispatch:
@@ -7,28 +7,23 @@ jobs:
   import:
     runs-on: ubuntu-latest
     steps:
-      - name: ⏳ Start
-        run: echo "🔄 Обработка repo.packix.com.7z"
+      - name: 📥 Download archive
+        run: curl -L "https://archive.org/download/cydia_repository_archive/apt.saurik.com-(ios_main_).7z" -o "apt.saurik.com.7z"
 
-      - name: 📥 Download
-        run: curl -L "https://archive.org/download/cydia_repository_archive/repo.packix.com.7z" -o "packix.7z"
-
-      - name: 📂 Extract
+      - name: 📂 Extract archive
         run: |
           sudo apt-get update
-          sudo apt-get install -y p7zip-full
-          mkdir -p repo/debs
-          7z x "packix.7z" -orepo/debs
-          rm "packix.7z"
+          sudo apt-get install -y p7zip-full binutils
+          7z x apt.saurik.com.7z -oextracted
 
-      - name: 📊 Disk usage
-        run: df -h
+      - name: 🔍 List .deb files
+        run: |
+          find extracted -type f -name "*.deb" > deb_list.txt
+          echo "Found $(wc -l < deb_list.txt) .deb files"
 
-      - name: 📦 Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: packix-debs
-          path: repo/debs
-
-      - name: ✅ Done
-        run: echo "✅ Packix архив обработан"
+      - name: ✅ Basic .deb check
+        run: |
+          while read -r deb; do
+            echo "Checking $deb"
+            ar t "$deb" || echo "⚠️ $deb is unreadable"
+          done < deb_list.txt
