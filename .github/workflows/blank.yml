@@ -50,7 +50,7 @@ jobs:
           df -h
 
       - name: 📦 Upload extracted debs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.archive }}-debs
           path: repo/debs
