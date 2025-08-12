@@ -1,0 +1,50 @@
+name: Import Cydia DEBs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  import-debs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full dpkg-dev
+
+      - name: Create folders
+        run: mkdir -p repo/debs
+
+      - name: Download and extract archives
+        run: |
+          declare -a archives=(
+            "apptapp.saurik.com.7z"
+            "apt.saurik.com-(ios_main_).7z"
+            "apt.thebigboss.org_repofiles_cydia-(_stable_main_).7z"
+            "havoc.app.7z"
+            "repo.dynastic.co.7z"
+          )
+
+          for archive in "${archives[@]}"; do
+            echo "Downloading $archive..."
+            wget "https://archive.org/download/cydia_repository_archive/$archive" -O "$archive"
+            echo "Extracting $archive..."
+            7z x "$archive" -orepo/debs
+          done
+
+      - name: Generate Packages and Packages.gz
+        run: |
+          cd repo
+          dpkg-scanpackages ./debs /dev/null > Packages
+          gzip -k Packages
+
+      - name: Commit and push
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add repo/Packages repo/Packages.gz
+          git commit -m "Добавлены Packages и Packages.gz"
+          git push
