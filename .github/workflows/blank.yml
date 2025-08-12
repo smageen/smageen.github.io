@@ -6,45 +6,36 @@ on:
 jobs:
   import-debs:
     runs-on: ubuntu-latest
+    timeout-minutes: 600  # ⏱ 10 часов
+    strategy:
+      matrix:
+        part: [part1.zip, part2.zip, part3.zip, part4.zip, part5.zip]
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Проверка диска
+      run: df -h
 
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full dpkg-dev
+    - name: Установка pv (для прогресса)
+      run: sudo apt-get install -y pv unzip
 
-      - name: Create folders
-        run: mkdir -p repo/debs
+    - name: Скачивание архива ${{ matrix.part }}
+      run: |
+        echo "🔽 Загрузка ${{ matrix.part }}..."
+        wget -c https://archive.org/download/cydia_repository_archive/${{ matrix.part }} -O ${{ matrix.part }}
+        echo "✅ Загрузка завершена."
 
-      - name: Download and extract archives
-        run: |
-          declare -a archives=(
-            "apptapp.saurik.com.7z"
-            "apt.saurik.com-(ios_main_).7z"
-            "apt.thebigboss.org_repofiles_cydia-(_stable_main_).7z"
-            "havoc.app.7z"
-            "repo.dynastic.co.7z"
-          )
+    - name: Распаковка с прогрессом
+      run: |
+        echo "📦 Распаковка ${{ matrix.part }}..."
+        pv ${{ matrix.part }} | unzip -o -d debs_${{ matrix.part }} -
 
-          for archive in "${archives[@]}"; do
-            echo "Downloading $archive..."
-            wget "https://archive.org/download/cydia_repository_archive/$archive" -O "$archive"
-            echo "Extracting $archive..."
-            7z x "$archive" -orepo/debs
-          done
+    - name: Логирование файлов
+      run: |
+        echo "📄 Список файлов в ${{ matrix.part }}:"
+        find debs_${{ matrix.part }}/ -type f -name "*.deb" | tee debs_list_${{ matrix.part }}.txt
 
-      - name: Generate Packages and Packages.gz
-        run: |
-          cd repo
-          dpkg-scanpackages ./debs /dev/null > Packages
-          gzip -k Packages
-
-      - name: Commit and push
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add repo/Packages repo/Packages.gz
-          git commit -m "Добавлены Packages и Packages.gz"
-          git push
+    - name: Загрузка артефакта
+      uses: actions/upload-artifact@v4
+      with:
+        name: debs-${{ matrix.part }}
+        path: debs_${{ matrix.part }}/
