@@ -37,11 +37,13 @@ jobs:
       - name: 📂 Extract and clean up
         run: |
           echo "📤 Распаковываю ${{ matrix.archive }}..."
-          sudo apt-get update && sudo apt-get install -y p7zip-full
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
           mkdir -p repo/debs
           7z x "${{ matrix.archive }}" -orepo/debs
           echo "🧹 Удаляю исходный архив..."
           rm "${{ matrix.archive }}"
+
 
       - name: 📊 Show disk usage
         run: |
