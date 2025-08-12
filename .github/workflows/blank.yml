@@ -21,5 +21,10 @@ jobs:
           mkdir -p repo/debs
           find extracted -type f -name "*.deb" -exec cp {} repo/debs/ \;
 
-      - name: 📄 List copied files
-        run: ls -lh repo/debs
+      - name: ✅ Commit .deb files to repo
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add repo/debs/*.deb
+          git commit -m "Add .deb files from apt.saurik.com"
+          git push
