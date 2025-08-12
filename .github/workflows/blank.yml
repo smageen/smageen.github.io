@@ -1,54 +1,65 @@
-name: Import All Cydia .7z Repos
+name: Import Cydia Repos
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * 0' # еженедельно
 
 jobs:
   import-debs:
+    strategy:
+      matrix:
+        archive:
+          - apt.thebigboss.org_repofiles_cydia.7z
+          - repo.dynastic.co.7z
+          - havoc.app.7z
+          - repo.packix.com.7z
+          - chariz.com.7z
+          - twickd.com.7z
+          - c1d3r.com.7z
+          - ios.jjolano.me.7z
+          - repo.pixelomer.com.7z
+          - repo.co.kr.7z
+          - repo.nepeta.me.7z
+          - repo.rpgfarm.com.7z
+          - repo.xsf1.re.7z
+          - repo.zebra.sh.7z
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⏳ Start processing ${{ matrix.archive }}
+        run: echo "🔄 Начинаю обработку архива: ${{ matrix.archive }}"
+
+      - name: 📥 Download archive
+        run: |
+          echo "📦 Загружаю ${{ matrix.archive }}..."
+          curl -L "https://archive.org/download/cydia_repository_archive/${{ matrix.archive }}" -o "${{ matrix.archive }}"
+
+      - name: 📂 Extract and clean up
+        run: |
+          echo "📤 Распаковываю ${{ matrix.archive }}..."
+          sudo apt-get update && sudo apt-get install -y p7zip-full
+          mkdir -p repo/debs
+          7z x "${{ matrix.archive }}" -orepo/debs
+          echo "🧹 Удаляю исходный архив..."
+          rm "${{ matrix.archive }}"
+
+      - name: 📊 Show disk usage
+        run: |
+          echo "📈 Проверка свободного места на диске:"
+          df -h
+
+      - name: 📦 Upload extracted debs
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.archive }}-debs
+          path: repo/debs
+
+      - name: ✅ Done with ${{ matrix.archive }}
+        run: echo "✅ Обработка завершена: ${{ matrix.archive }}"
+
+  finalize:
+    needs: import-debs
     runs-on: ubuntu-latest
     steps:
-
-    - name: 📦 Установка инструментов
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y p7zip-full dpkg-dev
-
-    - name: 📁 Создание папки
-      run: mkdir -p repo/debs
-
-    - name: 📥 Скачивание всех .7z из Internet Archive
-      run: |
-        wget -r -np -nd -A "*.7z" https://archive.org/download/cydia_repository_archive -P repo/archives
-
-    - name: 📂 Распаковка архивов с логом
-      run: |
-        for file in repo/archives/*.7z; do
-          echo "📂 Распаковка: $file"
-          7z x "$file" -orepo/debs
-        done
-
-    - name: 🧹 Очистка повреждённых и некорректных .deb
-      run: |
-        echo "🧹 Проверка .deb-файлов..."
-        find repo/debs -type f -name "*.deb" | while read file; do
-          if ! dpkg-deb -I "$file" >/dev/null 2>&1; then
-            echo "⚠️ Удалён повреждённый файл: $file"
-            rm "$file"
-          elif dpkg-deb -I "$file" | grep -E "^Installed-Size:.*$" | uniq -d | grep -q .; then
-            echo "⚠️ Удалён файл с дублирующим Installed-Size: $file"
-            rm "$file"
-          fi
-        done
-
-    - name: 🧾 Генерация Packages
-      run: |
-        echo "🧾 Генерация Packages..."
-        dpkg-scanpackages repo/debs /dev/null | gzip -9 > repo/Packages.gz
-
-    - name: 🚀 Публикация на GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: repo
+      - name: 🧩 Final step
+        run: echo "🎉 Все архивы обработаны. Артефакты сохранены."
