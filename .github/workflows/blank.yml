@@ -1,4 +1,4 @@
-name: Import Cydia DEBs
+name: Import All Cydia .7z Repos
 
 on:
   workflow_dispatch:
@@ -6,34 +6,39 @@ on:
 jobs:
   import-debs:
     runs-on: ubuntu-latest
-    timeout-minutes: 600  # ⏱ 10 часов
-    strategy:
-      matrix:
-        part: [part1.zip, part2.zip, part3.zip, part4.zip, part5.zip]
+    timeout-minutes: 600
 
     steps:
-    - name: Проверка диска
-      run: df -h
-
     - name: Установка инструментов
-      run: sudo apt-get update && sudo apt-get install -y pv unzip dpkg-dev
+      run: sudo apt-get update && sudo apt-get install -y p7zip-full dpkg-dev
 
-    - name: Скачивание архива ${{ matrix.part }}
-      run: |
-        echo "🔽 Загрузка ${{ matrix.part }}..."
-        wget -c https://archive.org/download/cydia_repository_archive/${{ matrix.part }} -O ${{ matrix.part }}
-        echo "✅ Загрузка завершена."
+    - name: Создание папки
+      run: mkdir -p repo/debs
 
-    - name: Распаковка с прогрессом
+    - name: Скачивание и распаковка архивов
       run: |
-        echo "📦 Распаковка ${{ matrix.part }}..."
-        mkdir -p repo/debs
-        pv ${{ matrix.part }} | unzip -o -d repo/debs -
+        urls=(
+          "apptapp.saurik.com.7z"
+          "apt.saurik.com-(ios_main_).7z"
+          "apt.thebigboss.org_repofiles_cydia-(_stable_main_).7z"
+          "artillect.github.io_repo.7z"
+          "cydia.bag-xml.com.7z"
+          "cydia.invoxiplaygames.uk.7z"
+          "cydia.invoxiplaygames.uk_beta.7z"
+          "evynw.github.io.7z"
+          "havoc.app.7z"
+          "ios3.party.7z"
+          "pwnage.dev.7z"
+          "repo.dynastic.co.7z"
+          "repo.mtmdev.org.7z"
+        )
 
-    - name: Логирование файлов
-      run: |
-        echo "📄 Список файлов в ${{ matrix.part }}:"
-        find repo/debs/ -type f -name "*.deb" | tee debs_list_${{ matrix.part }}.txt
+        for file in "${urls[@]}"; do
+          echo "🔽 Скачивание $file..."
+          wget -c "https://archive.org/download/cydia_repository_archive/$file" -O "$file"
+          echo "📦 Распаковка $file..."
+          7z x "$file" -orepo/debs
+        done
 
     - name: Генерация Packages
       run: |
@@ -45,5 +50,5 @@ jobs:
     - name: Загрузка артефакта
       uses: actions/upload-artifact@v4
       with:
-        name: repo-${{ matrix.part }}
+        name: full-cydia-repo
         path: repo/
