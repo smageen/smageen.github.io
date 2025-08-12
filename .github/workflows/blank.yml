@@ -6,49 +6,64 @@ on:
 jobs:
   import-debs:
     runs-on: ubuntu-latest
-    timeout-minutes: 600
+    timeout-minutes: 60  # ⏱️ защита от таймаута
 
     steps:
-    - name: Установка инструментов
-      run: sudo apt-get update && sudo apt-get install -y p7zip-full dpkg-dev
+    - name: 📦 Установка инструментов
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev p7zip-full wget
 
-    - name: Создание папки
+    - name: 📁 Создание папки
       run: mkdir -p repo/debs
 
-    - name: Скачивание и распаковка архивов
+    - name: 📥 Скачивание всех .7z из Internet Archive
       run: |
+        echo "📥 Скачивание .7z-архивов..."
         urls=(
-          "apptapp.saurik.com.7z"
-          "apt.saurik.com-(ios_main_).7z"
-          "apt.thebigboss.org_repofiles_cydia-(_stable_main_).7z"
-          "artillect.github.io_repo.7z"
-          "cydia.bag-xml.com.7z"
-          "cydia.invoxiplaygames.uk.7z"
-          "cydia.invoxiplaygames.uk_beta.7z"
-          "evynw.github.io.7z"
-          "havoc.app.7z"
-          "ios3.party.7z"
-          "pwnage.dev.7z"
-          "repo.dynastic.co.7z"
-          "repo.mtmdev.org.7z"
+          "https://archive.org/download/cydia_repository_archive/apptapp.saurik.com.7z"
+          "https://archive.org/download/cydia_repository_archive/apt.saurik.com-(ios_main_).7z"
+          "https://archive.org/download/cydia_repository_archive/apt.thebigboss.org_repofiles_cydia-(_stable_main_).7z"
+          "https://archive.org/download/cydia_repository_archive/artillect.github.io_repo.7z"
+          "https://archive.org/download/cydia_repository_archive/cydia.bag-xml.com.7z"
+          "https://archive.org/download/cydia_repository_archive/cydia.invoxiplaygames.uk.7z"
+          "https://archive.org/download/cydia_repository_archive/cydia.invoxiplaygames.uk_beta.7z"
+          "https://archive.org/download/cydia_repository_archive/evynw.github.io.7z"
+          "https://archive.org/download/cydia_repository_archive/havoc.app.7z"
+          "https://archive.org/download/cydia_repository_archive/ios3.party.7z"
+          "https://archive.org/download/cydia_repository_archive/pwnage.dev.7z"
+          "https://archive.org/download/cydia_repository_archive/repo.dynastic.co.7z"
+          "https://archive.org/download/cydia_repository_archive/repo.mtmdev.org.7z"
         )
 
-        for file in "${urls[@]}"; do
-          echo "🔽 Скачивание $file..."
-          wget -c "https://archive.org/download/cydia_repository_archive/$file" -O "$file"
-          echo "📦 Распаковка $file..."
-          7z x "$file" -orepo/debs
+        for url in "${urls[@]}"; do
+          filename=$(basename "$url")
+          echo "⬇️ Скачивание $filename..."
+          wget --tries=5 --timeout=60 --progress=bar:force -O "repo/$filename" "$url"
         done
 
-    - name: Генерация Packages
+    - name: 📂 Распаковка архивов с логом
+      run: |
+        echo "📂 Распаковка .7z..."
+        for file in repo/*.7z; do
+          echo "📂 Распаковка $(basename "$file")..."
+          7z x "$file" -orepo/debs | tee -a unpack.log
+        done
+
+    - name: 🧹 Очистка повреждённых .deb
+      run: |
+        echo "🧹 Проверка .deb-файлов..."
+        find repo/debs -type f -name "*.deb" | while read file; do
+          if ! dpkg-deb -I "$file" >/dev/null 2>&1; then
+            echo "⚠️ Удалён повреждённый файл: $file"
+            rm "$file"
+          fi
+        done
+
+    - name: 🧾 Генерация Packages
       run: |
         echo "🧾 Генерация Packages..."
         cd repo
         dpkg-scanpackages debs/ /dev/null > Packages
         gzip -9 < Packages > Packages.gz
 
-    - name: Загрузка артефакта
-      uses: actions/upload-artifact@v4
-      with:
-        name: full-cydia-repo
-        path: repo/
